@@ -8,11 +8,21 @@ module.exports = (req, res, next) => {
 		return next();
 	}
 	try {
-		const token = req.headers.authorization.split(' ')[1]; // Authorization: 'Bearer TOKEN'
-		if (!token) {
-			throw new Error('Authentication failed!');
+		const token = req.cookies['access_token'];
+		const cUser = req.cookies['c_user'];
+
+		if (!cUser || !token) {
+			res.clearCookie('access_token');
+			res.clearCookie('c_user');
+
+			const error = new HttpError('Authentication failed!', 403);
+			return next(error);
 		}
-		const decodedToken = jwt.verify(token, process.env.SERCRET_KEY);
+
+		const decodedToken = jwt.verify(
+			token,
+			process.env.ACCESS_TOKEN_SERCRET_KEY
+		);
 		req.userData = { userId: decodedToken.userId };
 		next();
 	} catch (err) {

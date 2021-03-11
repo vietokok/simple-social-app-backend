@@ -1,8 +1,9 @@
 require('dotenv').config();
 const router = require('express').Router();
 const passport = require('passport');
-const authControllers = require('../controllers/auth.controller');
 const { check } = require('express-validator');
+
+const authControllers = require('../controllers/auth.controller');
 
 router.post(
 	'/register',
@@ -14,36 +15,35 @@ router.post(
 	authControllers.register
 );
 
-router.get('/login/success', authControllers.checkLogin);
-
-router.post(
-	'/login',
-	passport.authenticate('local', { failureRedirect: '/auth/login/failed' }),
-	(req, res) => {
-		res.status(201).json({ message: 'Login successfully!!' });
-	}
-);
+router.post('/login', authControllers.login);
 
 router.get('/login/failed', (req, res) => {
 	res.status(401).json({
 		success: false,
-		message: 'user failed to authenticate.',
+		message: 'User failed to authenticate',
 	});
 });
 
-router.get('/facebook', passport.authenticate('facebook'));
+router.get(
+	'/facebook',
+	passport.authenticate('facebook', {
+		session: false,
+	})
+);
 
 router.get(
 	'/facebook/callback',
 	passport.authenticate('facebook', {
-		successRedirect: process.env.CLIENT_HOME_PAGE_URL,
 		failureRedirect: '/auth/login/failed',
-	})
+		session: false,
+	}),
+	authControllers.socialLogin
 );
 
 router.get(
 	'/google',
 	passport.authenticate('google', {
+		session: false,
 		scope: ['profile', 'email'],
 	})
 );
@@ -51,14 +51,12 @@ router.get(
 router.get(
 	'/google/callback',
 	passport.authenticate('google', {
-		successRedirect: process.env.CLIENT_HOME_PAGE_URL,
 		failureRedirect: '/auth/login/failed',
-	})
+		session: false,
+	}),
+	authControllers.socialLogin
 );
 
-router.get('/logout', (req, res) => {
-	req.logout();
-	res.redirect(process.env.CLIENT_HOME_PAGE_URL);
-});
+router.get('/logout', authControllers.logout);
 
 module.exports = router;

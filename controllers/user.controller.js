@@ -12,10 +12,7 @@ const getUserById = async (req, res, next) => {
 	}
 
 	if (!user) {
-		const error = new HttpError(
-			'Could not find user for the provided id.',
-			404
-		);
+		const error = new HttpError('Could not find user for the provided id', 204);
 		return next(error);
 	}
 
@@ -25,17 +22,13 @@ const getUserById = async (req, res, next) => {
 const getAllUser = async (req, res, next) => {
 	let users;
 	const userId = req.userData.userId;
+
 	try {
 		users = await User.find({
 			_id: { $ne: userId },
 		});
 	} catch (err) {
 		const error = new HttpError('Something went wrong, please try again.', 500);
-		return next(error);
-	}
-
-	if (!users) {
-		const error = new HttpError('Could not find any user', 404);
 		return next(error);
 	}
 

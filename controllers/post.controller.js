@@ -15,16 +15,12 @@ const getAllPost = async (req, res, next) => {
 		return next(error);
 	}
 
-	if (!posts) {
-		const error = new HttpError('No data found', 404);
-		return next(error);
-	}
-
 	res.json({ posts: posts });
 };
 
 const getPostByUserId = async (req, res, next) => {
 	const userId = req.userData.userId;
+
 	let posts;
 	try {
 		posts = await Post.find({
@@ -37,16 +33,12 @@ const getPostByUserId = async (req, res, next) => {
 		return next(error);
 	}
 
-	if (!posts) {
-		const error = new HttpError('No data found', 404);
-		return next(error);
-	}
-
 	res.json({ posts: posts });
 };
 
 const getPostByFriendId = async (req, res, next) => {
 	const friendId = req.params.friendId;
+
 	let posts;
 	try {
 		posts = await Post.find(
@@ -58,11 +50,6 @@ const getPostByFriendId = async (req, res, next) => {
 		);
 	} catch (err) {
 		const error = new HttpError('Something went wrong, please try again.', 500);
-		return next(error);
-	}
-
-	if (!posts) {
-		const error = new HttpError('No data found', 404);
 		return next(error);
 	}
 
@@ -86,10 +73,14 @@ const createPost = async (req, res, next) => {
 		createdBy: userId,
 		createdTime: moment().format('DD-MM-YYYY HH:mm:ss'),
 	});
+
 	let newPost;
 	try {
 		await post.save();
-		newPost = await Post.populate(post, { path: 'createdBy' });
+		newPost = await Post.populate(post, {
+			path: 'createdBy',
+			select: 'id displayName',
+		});
 	} catch (err) {
 		const error = new HttpError('Creating post failed, please try again.', 500);
 		return next(error);
@@ -112,22 +103,22 @@ const editPost = async (req, res, next) => {
 
 	let post;
 	try {
-		post = await Post.findById(postId).populate('createdBy');
+		post = await Post.findById(postId).populate('createdBy', 'id displayName');
 	} catch (err) {
 		const error = new HttpError(
-			'Something went wrong, could not update post.',
+			'Something went wrong, could not update post',
 			500
 		);
 		return next(error);
 	}
 
 	if (!post) {
-		const error = new HttpError('Could not find post for this id.', 404);
+		const error = new HttpError('Could not find post for this id', 204);
 		return next(error);
 	}
 
 	if (post.createdBy.id !== userId) {
-		const error = new HttpError('You are not allowed to edit this post.', 401);
+		const error = new HttpError('You are not allowed to edit this post', 401);
 		return next(error);
 	}
 	post.content = content;
@@ -154,14 +145,14 @@ const deletePost = async (req, res, next) => {
 		post = await Post.findById(postId);
 	} catch (err) {
 		const error = new HttpError(
-			'Something went wrong, could not delete post.',
+			'Something went wrong, could not delete post',
 			500
 		);
 		return next(error);
 	}
 
 	if (!post) {
-		const error = new HttpError('Could not find post for this id.', 404);
+		const error = new HttpError('Could not find post for this id', 204);
 		return next(error);
 	}
 
@@ -177,7 +168,7 @@ const deletePost = async (req, res, next) => {
 		await post.remove();
 	} catch (err) {
 		const error = new HttpError(
-			'Something went wrong, could not delete post.',
+			'Something went wrong, could not delete post',
 			500
 		);
 		return next(error);

@@ -8,16 +8,19 @@ const router = express.Router();
 router.get('/all', postControllers.getAllPost);
 router.get('/user', postControllers.getPostByUserId);
 router.get('/:friendId', postControllers.getPostByFriendId);
+
 router.post(
 	'/create',
 	[check('content').not().isEmpty()],
 	postControllers.createPost
 );
+
 router.patch(
 	'/:postId',
 	[check('content').not().isEmpty()],
 	postControllers.editPost
 );
+
 router.delete('/:postId', postControllers.deletePost);
 
 module.exports = router;

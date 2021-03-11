@@ -3,53 +3,43 @@ const passport = require('passport');
 const FacebookStrategy = require('passport-facebook').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const LocalStrategy = require('passport-local').Strategy;
+
 const User = require('../models/user.model');
 const Local = require('../models/local.model');
 const HttpError = require('../models/http-error');
 
-passport.serializeUser((user, done) => {
-	done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-	const user = await User.findById(id);
-	done(null, user);
-});
-
-// Local login
-
+// LocalStratery with passport
 passport.use(
 	'local',
 	new LocalStrategy(
 		{
 			usernameField: 'email',
 			passwordField: 'password',
-			passReqToCallback: true,
 		},
-		async (req, email, password, done) => {
-			let currentUser;
-			try {
-				currentUser = await Local.findOne({ email: email });
-				// if (!currentUser) {
-				// 	console.log('ok1');
-				// 	return done(null, false);
-				// }
+		async (email, password, done) => {
+			let user;
 
-				// if (!currentUser.validPassword(password)) {
-				// 	console.log('ok2');
-				// 	return done(null, false);
-				// }
+			try {
+				user = await Local.findOne({ email: email });
+
+				if (!user) {
+					return done(null, false);
+				}
+
+				const checkPassword = await user.validPassword(password, user.password);
+				if (!checkPassword) {
+					return done(null, false);
+				}
+
+				return done(null, user.id);
 			} catch (error) {
 				return done(error);
 			}
-
-			const user = await User.findById(currentUser.id);
-			return done(null, user);
 		}
 	)
 );
 
-// Sử dụng FacebookStrategy cùng Passport.
+// FacebookStrategy with passport
 passport.use(
 	new FacebookStrategy(
 		{
@@ -75,20 +65,22 @@ passport.use(
 					socketId: '',
 					isOnline: false,
 				};
+
 				try {
 					await newUser.save();
 				} catch (err) {
-					const error = new HttpError('Login failed, please try again.', 500);
-					return next(error);
+					return done(err);
 				}
-				return done(null, newUser);
+
+				return done(null, newUser.id);
 			}
-			done(null, currentUser);
+
+			return done(null, currentUser.id);
 		}
 	)
 );
 
-// Sử dụng GoogleStrategy cùng Passport.
+// GoogleStrategy with passport
 passport.use(
 	new GoogleStrategy(
 		{
@@ -113,16 +105,17 @@ passport.use(
 					socketId: '',
 					isOnline: false,
 				};
+
 				try {
 					await newUser.save();
 				} catch (err) {
-					// const error = new HttpError('Login failed, please try again.', 500);
-					// return next(error);
-					console.log(err);
+					return done(err);
 				}
-				return done(null, newUser);
+
+				return done(null, newUser.id);
 			}
-			done(null, currentUser);
+
+			return done(null, currentUser.id);
 		}
 	)
 );
