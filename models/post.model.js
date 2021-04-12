@@ -13,7 +13,7 @@ const postSchema = new Schema({
 				required: true,
 				ref: 'User',
 			},
-			content: { type: String, required: true },
+			text: { type: String, required: true },
 			createdTime: { type: String, required: true },
 		},
 	],

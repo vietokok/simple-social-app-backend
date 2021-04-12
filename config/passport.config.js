@@ -6,7 +6,6 @@ const LocalStrategy = require('passport-local').Strategy;
 
 const User = require('../models/user.model');
 const Local = require('../models/local.model');
-const HttpError = require('../models/http-error');
 
 // LocalStratery with passport
 passport.use(

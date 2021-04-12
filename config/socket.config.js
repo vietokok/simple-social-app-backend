@@ -8,6 +8,7 @@ const HttpError = require('../models/http-error');
 const User = require('../models/user.model');
 const Message = require('../models/message.model');
 const messageControllers = require('../controllers/message.controller');
+const { client } = require('./redis.config');
 
 let sockets = {};
 
@@ -24,6 +25,7 @@ sockets.init = (server) => {
 	});
 
 	io.use(async (socket, next) => {
+		// User verification by cookie
 		if (!socket.request.headers.cookie) {
 			const error = new HttpError('Authentication failed!', 403);
 			return next(error);
@@ -75,6 +77,7 @@ sockets.init = (server) => {
 		const cookieObject = cookie.parse(socket.request.headers.cookie);
 		const userId = cookieObject['c_user'];
 
+		// get messages when user scroll up
 		socket.on('getMessages', async (msg) => {
 			const messages = await messageControllers.getMessageByFriend(
 				userId,
@@ -84,6 +87,7 @@ sockets.init = (server) => {
 			socket.emit('getMessagesResponse', messages, msg.st);
 		});
 
+		// get message in first times message box show
 		socket.on('getMessagesFirst', async (msg) => {
 			const messages = await messageControllers.getMessageByFriend(
 				userId,
@@ -91,7 +95,20 @@ sockets.init = (server) => {
 				'0'
 			);
 			socket.emit('getMessagesFirstResponse', messages);
+
+			// set isRead of user with this friend is 0
+			client.exists(userId, (err, exist) => {
+				if (exist === 1) {
+					client.get(userId, (err, result) => {
+						const parseValue = JSON.parse(result);
+						parseValue[msg.friend] = 0;
+
+						client.set(userId, JSON.stringify(parseValue));
+					});
+				}
+			});
 		});
+		// send message to others
 		socket.on('privateMessage', async (msg) => {
 			let friend;
 			try {
@@ -111,6 +128,25 @@ sockets.init = (server) => {
 				isRead = true;
 			} else {
 				isRead = false;
+
+				const key = friend._id.toString();
+
+				// set isRead of this friend ++1
+				client.exists(key, (err, exist) => {
+					if (exist === 0) {
+						const objectValue = {
+							[userId]: 1,
+						};
+						client.set(key, JSON.stringify(objectValue));
+					} else {
+						client.get(key, (err, result) => {
+							const parseValue = JSON.parse(result);
+							parseValue[userId] = parseValue[userId] + 1;
+
+							client.set(key, JSON.stringify(parseValue));
+						});
+					}
+				});
 			}
 
 			const message = new Message({
@@ -143,13 +179,77 @@ sockets.init = (server) => {
 			}
 		});
 
-		// socket.on('makeVideo', async (videoInfo) => {
-		// 	let friend;
-		// 	try {
-		// 		friend = await User.findById(videoInfo.to);
-		// 	} catch (error) {}
-		// 	io.to(friend.socket.socketId).emit('makeVideoResponse', videoInfo);
-		// });
+		// get isRead status of messages
+		socket.on('getIsRead', () => {
+			client.exists(userId, (err, exist) => {
+				if (exist === 1) {
+					client.get(userId, (err, result) => {
+						socket.emit('getIsReadResponse', JSON.parse(result));
+					});
+				} else {
+					socket.emit('getIsReadResponse', {});
+				}
+			});
+		});
+
+		// send notification to others when create new post, like or comment
+		socket.on('notification', async (data) => {
+			switch (data.type) {
+				case 'create':
+					let users;
+					try {
+						users = await User.find({
+							_id: { $ne: userId },
+						});
+					} catch (err) {
+						socket.emit('error', 'Something went wrong, please try again');
+						return;
+					}
+
+					if (!users) {
+						socket.emit('error', 'Something went wrong, please try again');
+						return;
+					}
+
+					for (let i = 0; i < users.length; i++) {
+						if (users[i].socket.isOnline === true) {
+							io.to(users[i].socket.socketId).emit(
+								'notificationResponse',
+								'newNotification'
+							);
+						}
+					}
+					break;
+
+				case 'interactive':
+					const receiver = data.to;
+
+					let user;
+
+					try {
+						user = await User.findById(receiver);
+					} catch (err) {
+						socket.emit('error', 'Something went wrong, please try again');
+						return;
+					}
+
+					if (!user) {
+						socket.emit('error', 'Something went wrong, please try again');
+						return;
+					}
+
+					console.log(user);
+
+					if (user.socket.isOnline === true) {
+						console.log('ok');
+						io.to(user.socket.socketId).emit(
+							'notificationResponse',
+							'newNotification'
+						);
+					}
+					break;
+			}
+		});
 
 		socket.on('disconnect', async () => {
 			let user;

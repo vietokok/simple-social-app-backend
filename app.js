@@ -13,6 +13,7 @@ const authMiddleware = require('./middlewares/auth.middleware');
 const authRoutes = require('./routes/auth.route');
 const postRoutes = require('./routes/post.route');
 const userRoutes = require('./routes/user.route');
+const notiRoutes = require('./routes/notification.route');
 const HttpError = require('./models/http-error');
 
 const app = express();
@@ -33,6 +34,7 @@ app.use(cookieParser());
 app.use('/auth', authRoutes);
 app.use('/post', authMiddleware, postRoutes);
 app.use('/user', authMiddleware, userRoutes);
+app.use('/notification', authMiddleware, notiRoutes);
 
 app.use(() => {
 	const error = new HttpError('Could not find this route.', 404);

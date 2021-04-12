@@ -1,24 +1,30 @@
+require('dotenv').config();
+
 const HttpError = require('../models/http-error');
 const Post = require('../models/post.model');
+const Notification = require('../models/notification.model');
 const mongoose = require('mongoose');
 const moment = require('moment');
 const { validationResult } = require('express-validator');
+const User = require('../models/user.model');
 
 const aws = require('aws-sdk');
+
 aws.config.update({
-	secretAccessKey: 'YqV9cvnhgzoMtTQYtXg7VMZ79ihbchoirf5vI35o',
-	accessKeyId: 'AKIAIWVNO2DXJLOPILGQ',
-	region: 'ap-southeast-1',
+	secretAccessKey: process.env.AWS_SECRET_KEY,
+	accessKeyId: process.env.AWS_ACCESS_KEY,
+	region: process.env.AWS_REGION,
 });
 
 const s3 = new aws.S3();
 
-const getAllPost = async (req, res, next) => {
+const getPosts = async (req, res, next) => {
 	let posts;
 	try {
 		posts = await Post.find({})
 			.sort({ createdTime: '-1' })
-			.populate('createdBy');
+			.populate('createdBy', 'id displayName')
+			.populate('comment.user', 'id displayName');
 	} catch (err) {
 		const error = new HttpError('Something went wrong, please try again.', 500);
 		return next(error);
@@ -105,6 +111,44 @@ const createPost = async (req, res, next) => {
 		const error = new HttpError('Creating post failed, please try again.', 500);
 		return next(error);
 	}
+
+	let users;
+	try {
+		users = await User.find(
+			{
+				_id: { $ne: userId },
+			},
+			'id'
+		);
+	} catch (err) {
+		const error = new HttpError('Something went wrong, please try again.', 500);
+		return next(error);
+	}
+
+	if (users.length > 0) {
+		for (let i = 0; i < users.length; i++) {
+			const noti = new Notification({
+				_id: mongoose.Types.ObjectId().toString(),
+				userNotiSend: userId,
+				userNotiRep: users[i]._id,
+				notiType: 'create',
+				content: content,
+				post: post._id,
+				isSeen: false,
+				createdTime: moment().format('DD-MM-YYYY HH:mm:ss'),
+			});
+			try {
+				await noti.save();
+			} catch (err) {
+				const error = new HttpError(
+					'Something went wrong, could not update post.',
+					500
+				);
+				return next(error);
+			}
+		}
+	}
+
 	res.status(201).json({ post: newPost.toObject({ getters: true }) });
 };
 
@@ -122,7 +166,9 @@ const editPost = async (req, res, next) => {
 
 	let post;
 	try {
-		post = await Post.findById(postId).populate('createdBy', 'id displayName');
+		post = await Post.findById(postId)
+			.populate('createdBy', 'id displayName')
+			.populate('comment.user', 'id displayName');
 	} catch (err) {
 		const error = new HttpError(
 			'Something went wrong, could not update post',
@@ -220,11 +266,32 @@ const likePost = async (req, res, next) => {
 		const error = new HttpError('Could not find post for this id', 204);
 		return next(error);
 	}
-	const index = post.like.findIndex((post) => post === userId);
+	const index = post.like.findIndex((item) => item === userId);
+
 	let action = '';
-	if (index !== -1) {
+	if (index === -1) {
 		action = 'like';
 		post.like.push(userId);
+		const noti = new Notification({
+			_id: mongoose.Types.ObjectId().toString(),
+			userNotiSend: userId,
+			userNotiRep: post.createdBy,
+			notiType: 'like',
+			content: '',
+			post: post._id,
+			isSeen: false,
+			createdTime: moment().format('DD-MM-YYYY HH:mm:ss'),
+		});
+		try {
+			await noti.save();
+		} catch (err) {
+			console.log(err);
+			const error = new HttpError(
+				'Something went wrong, could not update post.',
+				500
+			);
+			return next(error);
+		}
 	} else {
 		action = 'unlike';
 		post.like.splice(index, 1);
@@ -239,13 +306,84 @@ const likePost = async (req, res, next) => {
 		);
 		return next(error);
 	}
-	res.status(200).json({ post: post.toObject({ getters: true }), action });
+	res.status(200).json({ info: { postId, userId, action } });
 };
 
-exports.getAllPost = getAllPost;
+const commentPost = async (req, res, next) => {
+	const postId = req.params.postId;
+	const userId = req.userData.userId;
+
+	const { text } = req.body;
+
+	let post;
+	try {
+		post = await Post.findById(postId)
+			.populate('createdBy', 'id displayName')
+			.populate('comment.user', 'id displayName');
+	} catch (err) {
+		const error = new HttpError(
+			'Something went wrong, could not like post',
+			500
+		);
+		return next(error);
+	}
+
+	if (!post) {
+		const error = new HttpError('Could not find post for this id', 204);
+		return next(error);
+	}
+
+	const commentObject = {
+		user: userId,
+		text,
+		createdTime: moment().format('DD-MM-YYYY HH:mm:ss'),
+	};
+
+	post.comment.push(commentObject);
+
+	let newPost;
+	try {
+		await post.save();
+		newPost = await Post.populate(post, {
+			path: 'comment.user',
+			select: 'id displayName',
+		});
+	} catch (err) {
+		const error = new HttpError(
+			'Something went wrong, could not update post.',
+			500
+		);
+		return next(error);
+	}
+
+	const noti = new Notification({
+		_id: mongoose.Types.ObjectId().toString(),
+		userNotiSend: userId,
+		userNotiRep: post.createdBy._id,
+		notiType: 'comment',
+		content: text,
+		post: post._id,
+		isSeen: false,
+		createdTime: moment().format('DD-MM-YYYY HH:mm:ss'),
+	});
+	try {
+		await noti.save();
+	} catch (err) {
+		const error = new HttpError(
+			'Something went wrong, could not update post.',
+			500
+		);
+		return next(error);
+	}
+
+	res.status(200).json({ post: newPost.toObject({ getters: true }) });
+};
+
+exports.getPosts = getPosts;
 exports.getPostByUserId = getPostByUserId;
 exports.getPostByFriendId = getPostByFriendId;
 exports.deletePost = deletePost;
 exports.editPost = editPost;
 exports.createPost = createPost;
 exports.likePost = likePost;
+exports.commentPost = commentPost;
