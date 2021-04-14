@@ -1,4 +1,12 @@
 require('dotenv').config();
+
+const dbHost = process.env.DB_HOST || 'localhost';
+const dbPort = process.env.DB_PORT || 27017;
+const dbName = process.env.DB_NAME || 'project_to_inteview';
+const dbUser = process.env.DB_USER;
+const dbUserPassword = process.env.DB_PASSWORD;
+const mongoUrl = `mongodb://${dbUser}:${dbUserPassword}@${dbHost}:${dbPort}/${dbName}`;
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
@@ -50,7 +58,7 @@ app.use((error, req, res, next) => {
 });
 
 mongoose
-	.connect(process.env.MONGO_URI, {
+	.connect(mongoUrl, {
 		useNewUrlParser: true,
 		useUnifiedTopology: true,
 	})
