@@ -26,11 +26,15 @@ const HttpError = require('./models/http-error');
 
 const app = express();
 const server = require('http').Server(app);
+const path = require('path');
 
 const whitelist = [
-	'http://localhost:3000',
+	'http://3.16.154.186:4000',
+	'https://3.16.154.186:4000',
 	'http://vietokok.buzz',
 	'http://www.vietokok.buzz',
+	'https://vietokok.buzz',
+	'https://www.vietokok.buzz',
 ];
 
 app.use(
@@ -48,6 +52,8 @@ app.use(
 	})
 );
 
+app.use(express.static(path.join(__dirname, 'client')));
+
 app.use(bodyParser.json());
 app.use(cookieParser());
 
@@ -55,6 +61,10 @@ app.use('/auth', authRoutes);
 app.use('/post', authMiddleware, postRoutes);
 app.use('/user', authMiddleware, userRoutes);
 app.use('/notification', authMiddleware, notiRoutes);
+
+app.get('*', (req, res) => {
+	res.sendFile(path.join(__dirname + '/client/index.html'));
+});
 
 app.use(() => {
 	const error = new HttpError('Could not find this route.', 404);

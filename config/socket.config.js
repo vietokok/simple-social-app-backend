@@ -13,9 +13,12 @@ const { client } = require('./redis.config');
 let sockets = {};
 
 const whitelist = [
-	'http://localhost:3000',
+	'http://3.16.154.186:4000',
+	'https://3.16.154.186:4000',
 	'http://vietokok.buzz',
 	'http://www.vietokok.buzz',
+	'https://vietokok.buzz',
+	'https://www.vietokok.buzz',
 ];
 
 sockets.init = (server) => {
