@@ -27,9 +27,21 @@ const HttpError = require('./models/http-error');
 const app = express();
 const server = require('http').Server(app);
 
+const whitelist = [
+	'http://localhost:3000',
+	'http://vietokok.buzz',
+	'http://www.vietokok.buzz',
+];
+
 app.use(
 	cors({
-		origin: [process.env.CLIENT_HOME_PAGE_URL],
+		origin: function (origin, callback) {
+			if (whitelist.indexOf(origin) !== -1) {
+				callback(null, true);
+			} else {
+				callback(new Error('Not allowed by CORS'));
+			}
+		},
 		methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
 		allowedHeaders: 'Authorization,Origin,X-Requested-With,Content-Type,Accept',
 		credentials: true,

@@ -12,10 +12,22 @@ const { client } = require('./redis.config');
 
 let sockets = {};
 
+const whitelist = [
+	'http://localhost:3000',
+	'http://vietokok.buzz',
+	'http://www.vietokok.buzz',
+];
+
 sockets.init = (server) => {
 	const io = require('socket.io')(server, {
 		cors: {
-			origin: process.env.CLIENT_HOME_PAGE_URL,
+			origin: function (origin, callback) {
+				if (whitelist.indexOf(origin) !== -1) {
+					callback(null, true);
+				} else {
+					callback(new Error('Not allowed by CORS'));
+				}
+			},
 			methods: ['GET', 'POST'],
 			allowedHeaders: [
 				'Authorization,Origin,X-Requested-With,Content-Type,Accept',
