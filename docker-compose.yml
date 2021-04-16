@@ -64,6 +64,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    user: '1000:1000'
 
   redis:
     image: redis:5-alpine
@@ -78,6 +79,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    user: '1000:1000'
 
 networks:
   db-network:

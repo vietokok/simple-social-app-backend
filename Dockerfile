@@ -1,17 +1,25 @@
-FROM node:13-alpine
+FROM node:12.18-alpine
 
 WORKDIR /app
 
-COPY . .
-
-RUN npm install
-
 RUN npm install -g pm2
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+COPY ["package.json", "package-lock.json*", "./"]
 
-RUN chown -R appuser:appgroup /app
+RUN npm install --production --silent
 
-USER appuser
+COPY . .
+
+# ----- If UID:GID is 1000:1000
+RUN chown -R node:node /app
+USER node
+
+# ----- Else
+# First find your host UID:GID using "whoami", Eg: your host user is "1111:2222"
+# RUN addgroup -g 2222 appgroup
+# RUN adduser -D -u 1111 appuser -G appgroup
+# RUN chown -R appuser:appgroup /app
+# USER appuser
+# ---------------------------------------
 
 CMD ["pm2-runtime", "ecosystem.config.js", "--env", "production"]
