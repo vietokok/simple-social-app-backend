@@ -28,24 +28,9 @@ const app = express();
 const server = require('http').Server(app);
 const path = require('path');
 
-const whitelist = [
-	'http://3.16.154.186:4000',
-	'https://3.16.154.186:4000',
-	'http://vietokok.buzz',
-	'http://www.vietokok.buzz',
-	'https://vietokok.buzz',
-	'https://www.vietokok.buzz',
-];
-
 app.use(
 	cors({
-		origin: function (origin, callback) {
-			if (whitelist.indexOf(origin) !== -1) {
-				callback(null, true);
-			} else {
-				callback(new Error('Not allowed by CORS'));
-			}
-		},
+		origin: '*',
 		methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
 		allowedHeaders: 'Authorization,Origin,X-Requested-With,Content-Type,Accept',
 		credentials: true,

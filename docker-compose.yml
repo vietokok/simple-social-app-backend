@@ -50,6 +50,7 @@ services:
       - .docker/data/db:/data/db
       - .docker/db-entrypoint.sh:/docker-entrypoint-initdb.d/db-entrypoint.sh
     restart: unless-stopped
+
     networks:
       - db-network
     environment:
